@@ -1,0 +1,14 @@
+sec-api
+beautifulsoup4
+langchain
+langchain_openai
+openai
+pandas
+requests
+langchain-community
+langchain-deepseek
+sentence-transformers
+langchain-huggingface
+transformers
+alpaca-py
+chromadb
