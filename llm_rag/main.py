@@ -1,25 +1,45 @@
 """Main entry point for the financial assistant."""
 
+import sys
 import os
-from config import (
-    LLM_API_KEY, SEC_API_KEY, ALPACA_API_KEY, 
-    ALPACA_SECRET_KEY, PAPER_TRADING, VECTOR_DB_DIR
-)
+
+if __name__ == "__main__":
+    # When run directly, we need to add the parent directory to the path
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    
+    # Use absolute imports
+    from llm_rag.core.config import load_api_keys, PAPER_TRADING, VECTOR_DB_DIR
+    from llm_rag.core.memory import ConversationMemory
+    from llm_rag.data.market_data import AlpacaClient
+    from llm_rag.data.vector_store import initialize_embeddings, initialize_text_splitter
+    from llm_rag.engines.assistant import financial_assistant_demo, answer_query
+    from llm_rag.nlp.prompts import create_llm_prompt_template
+    from llm_rag.nlp.query_processor import process_user_query
+else:
+    # When imported as a module, use relative imports
+    from .core.config import load_api_keys, PAPER_TRADING, VECTOR_DB_DIR
+    from .core.memory import ConversationMemory
+    from .data.market_data import AlpacaClient
+    from .data.vector_store import initialize_embeddings, initialize_text_splitter
+    from .engines.assistant import financial_assistant_demo, answer_query
+    from .nlp.prompts import create_llm_prompt_template
+    from .nlp.query_processor import process_user_query
+
+# Import external dependencies
 from langchain_deepseek import ChatDeepSeek
-from vector_store import initialize_embeddings, initialize_text_splitter
-from market_data import AlpacaClient
-from assistant import financial_assistant_demo, answer_query, create_llm_prompt_template
-from memory import ConversationMemory
 
 
 def initialize_components():
     """Initialize all necessary components for the financial assistant."""
     
+    # Load API keys
+    llm_api_key, sec_api_key, alpaca_api_key, alpaca_secret_key = load_api_keys()
+    
     # Initialize LLM
     llm = ChatDeepSeek(
         model="deepseek-chat",
         temperature=0,
-        api_key=LLM_API_KEY,
+        api_key=llm_api_key,
     )
     
     # Initialize embeddings and text splitter
@@ -28,12 +48,12 @@ def initialize_components():
     
     # Initialize Alpaca client
     alpaca_client = AlpacaClient(
-        api_key=ALPACA_API_KEY,
-        secret_key=ALPACA_SECRET_KEY,
+        api_key=alpaca_api_key,
+        secret_key=alpaca_secret_key,
         paper=PAPER_TRADING
     )
     
-    return llm, embeddings, text_splitter, alpaca_client
+    return llm, embeddings, text_splitter, alpaca_client, sec_api_key
 
 
 def test_alpaca_connection(alpaca_client):
@@ -42,8 +62,9 @@ def test_alpaca_connection(alpaca_client):
         test_ticker = "AAPL"
         price_info = alpaca_client.get_stock_price(test_ticker)
         print(f"✅ Current price for {test_ticker}: ${price_info['price']:.2f}")
-        print(f"   High: ${price_info['high']:.2f}, Low: ${price_info['low']:.2f}")
-        print(f"   Volume: {int(price_info['volume'])}")
+        print(f"   Bid: ${price_info['bid_price']:.2f}, Ask: ${price_info['ask_price']:.2f}")
+        if 'volume' in price_info:
+            print(f"   Volume: {int(price_info['volume'])}")
         return True
     except Exception as e:
         print(f"❌ Error connecting to Alpaca API: {e}")
@@ -52,7 +73,6 @@ def test_alpaca_connection(alpaca_client):
 
 def test_queries(llm):
     """Test the query processor with sample queries."""
-    from query_processor import process_user_query
     
     test_queries = [
         "What were the risk factors mentioned in Apple's latest 10-K?",
@@ -91,7 +111,7 @@ def test_queries(llm):
     print("\nWith memory, the assistant will be able to understand what 'that' refers to in the context of the previous query.")
 
 
-def run_example_query(example_index, llm, alpaca_client, embeddings, text_splitter):
+def run_example_query(example_index, llm, alpaca_client, sec_api_key, embeddings, text_splitter):
     """Run a predefined example query."""
     example_queries = [
         "What were Apple's revenue figures in their latest 10-K?",
@@ -113,7 +133,7 @@ def run_example_query(example_index, llm, alpaca_client, embeddings, text_splitt
         response = answer_query(
             query,
             alpaca_client,
-            SEC_API_KEY,
+            sec_api_key,
             embeddings,
             text_splitter,
             llm,
@@ -131,7 +151,7 @@ def run_example_query(example_index, llm, alpaca_client, embeddings, text_splitt
         response = answer_query(
             follow_up_query,
             alpaca_client,
-            SEC_API_KEY,
+            sec_api_key,
             embeddings,
             text_splitter,
             llm,
@@ -151,7 +171,7 @@ def main():
     print("Initializing Financial Assistant...")
     
     # Initialize all components
-    llm, embeddings, text_splitter, alpaca_client = initialize_components()
+    llm, embeddings, text_splitter, alpaca_client, sec_api_key = initialize_components()
     
     # Test Alpaca connection
     if not test_alpaca_connection(alpaca_client):
@@ -161,7 +181,7 @@ def main():
     # test_queries(llm)
     
     # Run the interactive demo
-    financial_assistant_demo(alpaca_client, SEC_API_KEY, embeddings, text_splitter, llm)
+    financial_assistant_demo(alpaca_client, sec_api_key, embeddings, text_splitter, llm)
 
 
 if __name__ == "__main__":

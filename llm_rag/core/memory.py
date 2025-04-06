@@ -1,6 +1,6 @@
 """Memory management for the financial assistant."""
 
-from typing import List, Dict, Optional
+from typing import Optional
 import json
 import os
 
@@ -11,7 +11,7 @@ class ConversationMemory:
     Stores and retrieves conversation history for maintaining context across queries.
     """
     
-    def __init__(self, max_history: int = 5, memory_file: Optional[str] = None):
+    def __init__(self, max_history: int = 10, memory_file: Optional[str] = None):
         """
         Initialize the conversation memory.
         

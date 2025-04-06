@@ -216,15 +216,18 @@ class SECFilingRetriever:
         try:
             # Section options include: "1", "1A", "1B", "2", "3", "4", "5", "6",
             # "7", "7A", "8", "9", "9A", "9B", "10", "11", "12", "13", "14", "15"
-            url = self._get_sec_filing_url(filing['cik'], filing['accessionNo'])
-            return self.extractor_api.get_section(url, section)
+            accession_number = filing['accessionNo']
+            section_data = self.extractor_api.get_section(accession_number, section, "text")
+            
+            # If the section data is a dictionary with a 'content' field, return the content
+            if isinstance(section_data, dict) and 'content' in section_data:
+                return section_data['content']
+            
+            # Otherwise, return the section data itself (which might be a string)
+            return section_data
 
         except Exception as e:
             raise Exception(f"Error extracting section {section}: {str(e)}")
-
-    def _get_sec_filing_url(self, cik: str, accession_number: str):
-        accession_number_no_dashes = accession_number.replace("-", "")
-        return f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number_no_dashes}/index.json"
 
     def get_filing_year(self, filing: Dict) -> Optional[int]:
         """
@@ -242,3 +245,7 @@ class SECFilingRetriever:
             except:
                 pass
         return None
+        
+    def clear_cache(self) -> None:
+        """Clear the filing cache."""
+        self.filing_cache = {} 

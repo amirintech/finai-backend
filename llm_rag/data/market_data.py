@@ -3,8 +3,6 @@
 from typing import Dict, List
 from datetime import datetime
 from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import AssetClass
-from alpaca.trading.requests import GetAssetsRequest
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.requests import StockBarsRequest, StockLatestTradeRequest, StockLatestQuoteRequest
@@ -13,8 +11,21 @@ from alpaca.data.requests import StockBarsRequest, StockLatestTradeRequest, Stoc
 class AlpacaClient:
     """A class to interact with Alpaca API for trading and market data."""
     
-    def __init__(self, api_key, secret_key, paper=True):
-        """Initialize Alpaca clients."""
+    def __init__(self, api_key: str, secret_key: str, paper: bool = True):
+        """
+        Initialize Alpaca clients.
+        
+        Args:
+            api_key: Alpaca API key
+            secret_key: Alpaca secret key
+            paper: Whether to use paper trading (default True)
+            
+        Raises:
+            ValueError: If API keys are missing
+        """
+        if not api_key or not secret_key:
+            raise ValueError("Alpaca API key and secret key are required")
+            
         self.trading_client = TradingClient(api_key, secret_key, paper=paper)
         self.market_data_client = StockHistoricalDataClient(api_key, secret_key)
         
@@ -24,11 +35,14 @@ class AlpacaClient:
 
         Returns:
             A dictionary containing account details
+            
+        Raises:
+            Exception: If fetching account info fails
         """
         try:
             account = self.trading_client.get_account()
             return {
-                "account_id": account.id,
+                "account_id": str(account.id),
                 "cash": float(account.cash),
                 "portfolio_value": float(account.portfolio_value),
                 "buying_power": float(account.buying_power),
@@ -49,6 +63,9 @@ class AlpacaClient:
 
         Returns:
             A list of dictionaries containing position details
+            
+        Raises:
+            Exception: If fetching positions fails
         """
         try:
             positions = self.trading_client.get_all_positions()
@@ -78,6 +95,9 @@ class AlpacaClient:
 
         Returns:
             A dictionary containing price and market data
+            
+        Raises:
+            Exception: If fetching stock price fails
         """
         ticker = ticker.upper()
         try:
@@ -95,13 +115,13 @@ class AlpacaClient:
             bars_request = StockBarsRequest(
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
-                start=datetime.strptime("2025-03-01", '%Y-%m-%d'),
+                start=datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
                 limit=1
             )
             bars_response = self.market_data_client.get_stock_bars(bars_request)
-            bar = bars_response[ticker][0]
+            bar = bars_response[ticker][0] if ticker in bars_response and bars_response[ticker] else None
 
-            return {
+            result = {
                 "symbol": ticker,
                 "price": float(trade.price),
                 "time": trade.timestamp.isoformat(),
@@ -109,10 +129,18 @@ class AlpacaClient:
                 "ask_size": float(quote.ask_size),
                 "bid_price": float(quote.bid_price),
                 "bid_size": float(quote.bid_size),
-                "open": float(bar.open),
-                "high": float(bar.high),
-                "low": float(bar.low),
-                "volume": float(bar.volume)
             }
+            
+            # Add bar data if available
+            if bar:
+                result.update({
+                    "open": float(bar.open),
+                    "high": float(bar.high),
+                    "low": float(bar.low),
+                    "volume": float(bar.volume)
+                })
+                
+            return result
+            
         except Exception as e:
-            raise Exception(f"Error fetching stock price for {ticker}: {str(e)}")
+            raise Exception(f"Error fetching stock price for {ticker}: {str(e)}") 
